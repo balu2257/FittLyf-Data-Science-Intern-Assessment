@@ -4,14 +4,11 @@ Created on Mon Sep  2 22:03:07 2024
 
 @author: balak
 """
-
 import streamlit as st
 import pandas as pd
-from pyod.models.iforest import IForest
-from pyod.models.lof import LOF
 import numpy as np
 
-# Define a function to load data and predict anomalies
+# Define a function to load data and detect anomalies
 def load_and_predict(file):
     # Load the data
     data = pd.read_csv(file)
@@ -22,26 +19,15 @@ def load_and_predict(file):
         st.error("Dataset must contain 'Amount', 'Time', and 'Class' columns.")
         return None
 
-    # Prepare features for prediction
-    features = data[['Amount', 'Time']]
+    # Simple statistical anomaly detection
+    mean_amount = data['Amount'].mean()
+    std_amount = data['Amount'].std()
     
-    # Initialize models
-    iso_forest = IForest(contamination=0.001)
-    lof = LOF(n_neighbors=20, contamination=0.001)
+    # Define a threshold for anomaly detection
+    threshold = mean_amount + 3 * std_amount
     
-    # Fit models
-    iso_forest.fit(features)
-    lof.fit(features)
-    
-    # Predict anomalies
-    iso_preds = iso_forest.predict(features)
-    lof_preds = lof.predict(features)
-    
-    # Add predictions to data
-    data['Isolation_Forest'] = iso_preds
-    data['LOF'] = lof_preds
-    data['Isolation_Forest'] = data['Isolation_Forest'].astype(int)
-    data['LOF'] = data['LOF'].astype(int)
+    # Detect anomalies
+    data['Anomaly'] = data['Amount'].apply(lambda x: 1 if x > threshold else 0)
     
     return data
 
@@ -56,10 +42,11 @@ if uploaded_file is not None:
     if result is not None:
         st.write(result.head())  # Display first few rows of the dataframe
         st.download_button("Download Results", result.to_csv(index=False), "results.csv")
-
-        # Visualizations for anomalies
-        st.subheader('Isolation Forest Anomalies')
-        st.write(result[result['Isolation_Forest'] == 1].head())
         
-        st.subheader('LOF Anomalies')
-        st.write(result[result['LOF'] == 1].head())
+        # Visualization
+        st.subheader('Anomalies')
+        st.write(result[result['Anomaly'] == 1].head())
+        
+        # Plotting transaction amounts
+        st.subheader('Transaction Amount Distribution')
+        st.bar_chart(result['Amount'])
